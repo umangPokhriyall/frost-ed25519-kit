@@ -25,35 +25,48 @@ Inspired by institutional setups (like exchanges and custodians), this kit enabl
 
 - **Orchestrator**  
   - Exposes REST API for clients  
-  - Manages sessions (wallet creation, signing)  
-  - Collects commitments, verifies shares, aggregates public key  
-  - Combines partial signatures into final Solana-compatible signature  
+  - Coordinates DKG rounds (collects commitments, verifies shares)
+  - Stores sessions in Postgres (wallets, signing sessions, audit logs) 
+  - Aggregates the final public key  
+  - Combines partial signatures into a valid Solana signature
+  - Broadcasts signed transactions to devnet
 
 - **Node Agent**  
   - Participates in DKG rounds (polynomial commitments, shares)  
   - Verifies commitments from peers  
   - Stores final key share locally (encrypted)  
   - Responds with partial signatures during signing  
+  - Never reveals its secret share
 
 - **Dependencies**  
   - [poem](https://github.com/poem-web/poem) – web framework  
   - [diesel](https://diesel.rs/) – Postgres ORM (planned)  
   - [tokio](https://tokio.rs/) – async runtime  
   - [redis](https://redis.io/) – message bus (planned)  
-  - [k256](https://docs.rs/k256) – elliptic curve (secp256k1/ed25519) ops  
+  - [curve25519-dalek](https://docs.rs/curve25519-dalek/latest/curve25519_dalek/) – Ed25519 curve math
   - [serde](https://serde.rs/) – serialization  
   - [tracing](https://docs.rs/tracing) – logging  
 
 ---
 
-## 🔑 Features (current & roadmap)
+## 🔑 Features
 
-- ✅ Distributed Key Generation (Round 1 + Round 2)  
-- ✅ Aggregate public key calculation  
-- 🔜 Secure local share storage (AES-GCM encrypted)  
-- 🔜 Threshold signing with nonce commitments & partial signatures  
-- 🔜 Redis-based async orchestration  
-- 🔜 Integration with Solana transactions (`solana-sdk`)  
+### ✅Current
+
+- Distributed Key Generation (Round 1 + Round 2)  
+- Aggregate public key calculation  
+- Native SOL transfer via threshold signing 
+- SPL token transfer support 
+- Persistence with Postgres
+
+## 🔜 Roadmap
+
+- Encrypted local share storage (AES-GCM per node)
+- Threshold signing with nonce commitments (FROST-style)
+- Key share refresh protocol
+- Redis-based async orchestration 
+- Public API keys for external integrations
+- Full audit logs
 
 ---
 
@@ -88,14 +101,53 @@ curl -X POST http://127.0.0.1:3000/wallets \
 }
 
 ```
+## Send SOL
 
-## 🛣 Roadmap
-- Add secure encrypted share storage per node
+```bash
+curl -X POST http://127.0.0.1:3000/wallets/<WALLET_ID>/send \
+  -H "Content-Type: application/json" \
+  -d '{"to":"<RECIPIENT_PUBKEY>", "amount":1000000}'
+```
 
-- Implement t-of-n threshold signing (FROST/MuSig2 style)
+### Example Response:
+```bash
+{
+  "signature": "4EeD7bD8pNWhW5qoJkxjFvtkomWxJPdXEpR54ZmCJgWNTG2NqDi8.....k"  
+}
 
-- Add Postgres schema for sessions & audit logs
+```
+## Send Token
 
-- Use Redis streams for orchestrator <-> node communication
+```bash
+curl -X POST http://127.0.0.1:3000/wallets/<WALLET_ID>/send \
+  -H "Content-Type: application/json" \
+  -d '{"to":"<RECIPIENT_PUBKEY>", "amount":1000000, "token": "<TOKEN_NAME>", "mint":"<MINT_ADDRESS>"}'
+```
 
-- Full Solana transaction signing & broadcasting
+### Example Response:
+```bash
+{
+  "signature": "4EeD7bD8pNWhW5qoJkxjFvtkomWxJPdXEpR54ZmCJgWNTG2NqDi8.....k"  
+}
+
+```
+## Sign Transaction
+
+```bash
+curl -X POST http://127.0.0.1:3000/wallets/<WALLET_ID>/sign \
+  -H "Content-Type: application/json" \
+  -d '{"message":"<TRANSACTION_HEX>"}'
+```
+
+### Example Response:
+```bash
+{
+  "signature": "4EeD7bD8pNWhW5qoJkxjFvtkomWxJPdXEpR54ZmCJgWNTG2NqDi8.....k"  
+}
+
+```
+
+## ⚠️ Disclaimer
+
+This is an MPC prototype.
+It demonstrates the core flow of distributed keygen, signing, and transaction broadcasting. Not production ready.

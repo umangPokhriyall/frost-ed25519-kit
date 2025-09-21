@@ -1,5 +1,5 @@
 pub mod config;
 pub mod models;
-pub mod module;
 pub mod schema;
-pub mod store;
+pub mod node_store;
+pub mod node_models;
