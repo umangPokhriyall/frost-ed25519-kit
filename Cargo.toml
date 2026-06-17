@@ -1,4 +1,25 @@
 [workspace]
-resolver = "3" 
-members = [ "node", "nodeDb","orchestrator", "store"]
+resolver = "3"
+members = ["frost-core"]
 
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/umangPokhriyall/frost-ed25519-kit"
+
+# Workspace lints. unsafe_code is forbidden crate-wide; frost-core also carries
+# #![forbid(unsafe_code)] at the crate root (phase0-spec §2.2).
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+# Dependency allowlist — phase0-spec §2.3. Nothing else is permitted in
+# frost-core this phase: no tokio/reqwest/diesel/Postgres/solana-*.
+[workspace.dependencies]
+curve25519-dalek = { version = "4", features = ["zeroize", "rand_core"] }
+zeroize = { version = "1", features = ["zeroize_derive"] }
+rand_core = "0.6"
+subtle = "2"      # constant-time equality / choice
+thiserror = "2"   # error derive only; no runtime cost
+# dev-dependencies:
+rand = "0.8"      # test RNG only
+hex = "0.4"       # KAT/test vector decoding only
