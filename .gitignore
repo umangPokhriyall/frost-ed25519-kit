@@ -1,5 +1,5 @@
-orchestrator/.env
-node/.env
-store/.env
-target/
+/target
 
+# Never commit secrets again (a committed nodeDb/.env was purged from history).
+.env
+*.env
