@@ -21,3 +21,9 @@
 //! - `keygen`  — trusted-dealer keygen (+ public verifying shares); Pedersen DKG in P2.
 
 #![forbid(unsafe_code)]
+
+pub mod error;
+pub mod group;
+pub mod secret;
+
+pub use error::Error;
