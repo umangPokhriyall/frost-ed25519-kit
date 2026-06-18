@@ -27,3 +27,7 @@ hex.workspace = true
 frost-ed25519.workspace = true
 proptest.workspace = true
 serde_json.workspace = true
+# phase3-spec §2: the archived naive scheme is the ROS positive control in
+# tests/ros_resistance.rs. DEV-ONLY — `legacy` (publish = false) must never enter
+# the shipped graph (`cargo tree -e normal -p frost-core` proves it).
+legacy = { path = "../legacy" }

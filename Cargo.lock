@@ -221,6 +221,7 @@ dependencies = [
  "curve25519-dalek",
  "frost-ed25519",
  "hex",
+ "legacy",
  "proptest",
  "rand 0.8.6",
  "rand_core 0.6.4",
