@@ -13,5 +13,7 @@
 #![forbid(unsafe_code)]
 
 pub mod oracle;
+pub mod ros;
 
 pub use oracle::{NaiveSchnorrOracle, SessionId, verify};
+pub use ros::{Forgery, RosOutcome, SchnorrLikeOracle, ros_attack};
