@@ -32,7 +32,7 @@ use zeroize::{Zeroize, Zeroizing};
 
 use crate::ciphersuite;
 use crate::error::Error;
-use crate::group::{GElement, GScalar, Identifier};
+use crate::group::{GElement, GScalar, Identifier, validate_identifier_set};
 use crate::keygen::{KeyPackage, PublicKeyPackage};
 use crate::secret::SigningShare;
 use crate::vss::{Commitments, verify_share, verifying_share};
@@ -365,12 +365,14 @@ pub fn part2(
     let t = secret.threshold as usize;
     let n = secret.max_signers as usize;
 
-    // Structural validation (reject, never coerce; no panic on caller input).
-    // The set must be the other n-1 participants — self excluded, count exact —
-    // or group_public would silently miss a contribution.
-    if round1_packages.contains_key(&my_id) {
-        return Err(Error::InvalidEncoding("dkg: round1 packages must exclude self"));
-    }
+    // Identifier discipline (amendment §5, via the frozen layer): the full set —
+    // the n-1 peers plus self — must be free of zero/duplicate identifiers. Self
+    // appearing among the peers is a duplicate -> DuplicateIdentifier; zero cannot
+    // occur because Identifier construction already rejects it.
+    let mut all_ids: Vec<Identifier> = round1_packages.keys().copied().collect();
+    all_ids.push(my_id);
+    validate_identifier_set(&all_ids)?;
+    // Count must be exact, or group_public would silently miss a contribution.
     if round1_packages.len() != n - 1 {
         return Err(Error::InvalidEncoding("dkg: incorrect number of round1 packages"));
     }
@@ -431,10 +433,12 @@ pub fn part3(
     let my_id = secret.id;
     let n = secret.max_signers as usize;
 
-    // Structural validation (no panic on caller input).
-    if round1_packages.contains_key(&my_id) {
-        return Err(Error::InvalidEncoding("dkg: round1 packages must exclude self"));
-    }
+    // Identifier discipline (amendment §5, via the frozen layer): peers plus self
+    // must be free of zero/duplicate identifiers (self among the peers ->
+    // DuplicateIdentifier). Reused below for the verifying-share derivation.
+    let mut all_ids: Vec<Identifier> = round1_packages.keys().copied().collect();
+    all_ids.push(my_id);
+    validate_identifier_set(&all_ids)?;
     if round1_packages.len() != n - 1 || round2_packages.len() != n - 1 {
         return Err(Error::InvalidEncoding("dkg: incorrect number of packages"));
     }
@@ -468,8 +472,6 @@ pub fn part3(
     }
 
     // verifying_shares[ℓ] = Σ_j verifying_share(ℓ, commitments_j) for every ℓ.
-    let mut all_ids: Vec<Identifier> = round1_packages.keys().copied().collect();
-    all_ids.push(my_id);
     let mut verifying_shares = BTreeMap::new();
     for &ell in &all_ids {
         let mut acc = verifying_share(ell, &secret.own_commitment);
