@@ -7,6 +7,13 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/umangPokhriyall/frost-ed25519-kit"
 
+# Optimize dependencies (curve25519-dalek, sha2, frost-ed25519) at opt-level 3 even
+# in dev/test builds, so the >=10,000-case differential proptest (phase1-spec §7.2)
+# runs in reasonable time. Our own crates stay at the profile default (opt-level 0)
+# so frost-core remains debuggable. Build-config only; the shipped graph is unchanged.
+[profile.dev.package."*"]
+opt-level = 3
+
 # Workspace lints. unsafe_code is forbidden crate-wide; frost-core also carries
 # #![forbid(unsafe_code)] at the crate root (phase0-spec §2.2).
 [workspace.lints.rust]
