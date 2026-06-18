@@ -16,3 +16,11 @@
 
 ## Scope discipline
 One session, one deliverable. End with cargo build + clippy -D warnings + test, list changes, STOP.
+
+## Freeze record (Phase 0 complete, 2026-06-18)
+group.rs, secret.rs, vss.rs are FROZEN: do not change their public contracts. If
+Phase 1 signing appears to need a change to any of them, the signing design is
+wrong — STOP and ask. keygen.rs is stable but not frozen (Phase 2 adds Pedersen
+DKG behind the same KeyPackage/PublicKeyPackage/SigningShare types). message.rs is
+not yet implemented (no Phase 0 wire types were needed); it freezes on
+introduction. The sans-IO boundary is law from here on.

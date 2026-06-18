@@ -11,7 +11,7 @@ use curve25519_dalek::scalar::Scalar;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::error::Error;
-use crate::group::GScalar;
+use crate::group::{GElement, GScalar, Identifier};
 
 /// A signing share `s_i`. Zeroized on drop. No `Debug` derive, no `Serialize`,
 /// no `Clone`/`Copy`.
@@ -24,6 +24,18 @@ impl SigningShare {
     pub fn from_canonical_bytes(b: [u8; 32]) -> Result<Self, Error> {
         let scalar = GScalar::from_canonical_bytes(b)?;
         Ok(SigningShare(scalar.as_scalar()))
+    }
+
+    /// The share value as a validated scalar. The legitimate holder reads its
+    /// own share to sign (Phase 1) or, in tests, to Lagrange-interpolate; the
+    /// stored copy is still zeroized on drop.
+    pub fn to_scalar(&self) -> GScalar {
+        GScalar::from_scalar(self.0)
+    }
+
+    /// Wrap a scalar produced by keygen polynomial evaluation. Crate-internal.
+    pub(crate) fn from_scalar(s: GScalar) -> Self {
+        SigningShare(s.as_scalar())
     }
 }
 
@@ -54,5 +66,43 @@ pub struct SigningNonces {
 impl core::fmt::Debug for SigningNonces {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("SigningNonces(<redacted>)")
+    }
+}
+
+/// A degree-`(t-1)` secret polynomial `a_0 + a_1·x + … + a_{t-1}·x^{t-1}` used
+/// by trusted-dealer keygen. The constant term `a_0` is the group secret. The
+/// coefficients are zeroized on drop, after shares are derived.
+#[derive(Zeroize, ZeroizeOnDrop)]
+pub(crate) struct SecretPolynomial {
+    coeffs: Vec<Scalar>,
+}
+
+impl SecretPolynomial {
+    /// Sample a polynomial with `t` random coefficients (degree `t-1`). Caller
+    /// guarantees `t >= 1`.
+    pub(crate) fn sample(t: usize, rng: &mut (impl rand_core::RngCore + rand_core::CryptoRng)) -> Self {
+        let coeffs = (0..t).map(|_| Scalar::random(rng)).collect();
+        SecretPolynomial { coeffs }
+    }
+
+    /// Evaluate the polynomial at an identifier (Horner), yielding the signing
+    /// share `s_i = f(id)`.
+    pub(crate) fn evaluate(&self, id: Identifier) -> GScalar {
+        let x = id.as_scalar().as_scalar();
+        let mut acc = Scalar::ZERO;
+        for c in self.coeffs.iter().rev() {
+            acc = acc * x + *c;
+        }
+        GScalar::from_scalar(acc)
+    }
+
+    /// The public Feldman commitments `C_k = a_k·G`. Returns only public points;
+    /// the secret coefficients never leave this type.
+    pub(crate) fn commit(&self) -> Vec<GElement> {
+        let g = GElement::generator();
+        self.coeffs
+            .iter()
+            .map(|c| g.scalar_mul(&GScalar::from_scalar(*c)))
+            .collect()
     }
 }

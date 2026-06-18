@@ -13,6 +13,7 @@ use core::ops::{Add, Mul, Sub};
 use curve25519_dalek::constants::ED25519_BASEPOINT_POINT;
 use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
 use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::traits::Identity;
 use subtle::ConstantTimeEq;
 
 use crate::error::Error;
@@ -44,6 +45,12 @@ impl GScalar {
     /// of higher modules' public APIs.
     pub(crate) fn as_scalar(&self) -> Scalar {
         self.0
+    }
+
+    /// Wrap a dalek scalar produced by in-crate arithmetic (already canonical).
+    /// Crate-internal: used by `secret.rs`/`keygen.rs` polynomial evaluation.
+    pub(crate) fn from_scalar(s: Scalar) -> Self {
+        GScalar(s)
     }
 }
 
@@ -105,6 +112,13 @@ impl GElement {
         GElement(ED25519_BASEPOINT_POINT)
     }
 
+    /// The identity element (point at infinity). It is in the prime-order
+    /// subgroup, so it is a valid `GElement`; used as the accumulator seed when
+    /// evaluating a commitment polynomial in the exponent.
+    pub fn identity() -> Self {
+        GElement(EdwardsPoint::identity())
+    }
+
     /// Scalar multiplication (constant-time, via dalek).
     pub fn scalar_mul(&self, s: &GScalar) -> Self {
         GElement(self.0 * s.0)
@@ -124,6 +138,18 @@ impl PartialEq for GElement {
     }
 }
 impl Eq for GElement {}
+
+// A group element is public key material (verifying shares, the group key); a
+// non-redacting Debug over its canonical compressed encoding is safe.
+impl core::fmt::Debug for GElement {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("GElement(0x")?;
+        for byte in self.to_compressed() {
+            write!(f, "{byte:02x}")?;
+        }
+        f.write_str(")")
+    }
+}
 
 /// A participant identifier: a NONZERO scalar (amendment §5). `x = 0` is the
 /// secret's own coordinate and is rejected at construction; ordering and
