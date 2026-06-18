@@ -16,7 +16,8 @@
 //! - `vss`     — Feldman commitments + verification. FROZEN after P0.
 //! - `keygen`  — trusted-dealer keygen (+ public verifying shares); Pedersen DKG in P2.
 //! - `ciphersuite` — FROST(Ed25519, SHA-512) constants + H1–H5 (phase1-spec §3).
-//! - `sign`    — round 1 `commit` (hedged) + round 2 `sign`; `aggregate`/`verify` in 1.2.
+//! - `sign`    — round 1 `commit` (hedged), round 2 `sign`, `aggregate` (identifiable abort).
+//! - `verify`  — RFC 8032 aggregate `verify` + per-partial `verify_share`.
 //!
 //! `message` (transport-agnostic wire types) is reserved for when Phase 1 first
 //! needs a wire type; it carries no Phase 0 content and freezes on introduction.
@@ -29,10 +30,12 @@ pub mod group;
 pub mod keygen;
 pub mod secret;
 pub mod sign;
+pub mod verify;
 pub mod vss;
 
 pub use error::Error;
 pub use keygen::{KeyPackage, PublicKeyPackage, trusted_dealer_keygen};
-// Note: the `sign::sign` function is reached as `sign::sign`; it is not re-exported
-// here because that name would collide with the `sign` module at the crate root.
-pub use sign::{SignatureShare, SigningCommitments};
+// Note: the `sign::sign` and `verify::verify` functions are reached module-qualified
+// (`sign::sign`, `verify::verify`); they are not re-exported here because each name
+// would collide with its module at the crate root. The value types are re-exported.
+pub use sign::{Signature, SignatureShare, SigningCommitments};
