@@ -15,17 +15,24 @@
 //! - `error`   — the crate error enum (includes `Culprit`, defined now for P1).
 //! - `vss`     — Feldman commitments + verification. FROZEN after P0.
 //! - `keygen`  — trusted-dealer keygen (+ public verifying shares); Pedersen DKG in P2.
+//! - `ciphersuite` — FROST(Ed25519, SHA-512) constants + H1–H5 (phase1-spec §3).
+//! - `sign`    — round 1 `commit` (hedged) + round 2 `sign`; `aggregate`/`verify` in 1.2.
 //!
 //! `message` (transport-agnostic wire types) is reserved for when Phase 1 first
 //! needs a wire type; it carries no Phase 0 content and freezes on introduction.
 
 #![forbid(unsafe_code)]
 
+pub mod ciphersuite;
 pub mod error;
 pub mod group;
 pub mod keygen;
 pub mod secret;
+pub mod sign;
 pub mod vss;
 
 pub use error::Error;
 pub use keygen::{KeyPackage, PublicKeyPackage, trusted_dealer_keygen};
+// Note: the `sign::sign` function is reached as `sign::sign`; it is not re-exported
+// here because that name would collide with the `sign` module at the crate root.
+pub use sign::{SignatureShare, SigningCommitments};

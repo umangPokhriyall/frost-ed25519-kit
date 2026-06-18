@@ -69,6 +69,33 @@ impl core::fmt::Debug for SigningNonces {
     }
 }
 
+// Phase 1 fills the hedged constructor and the consuming reader that the Phase 0
+// doc-comment above forecast ("the into_partial(self, ..) consumer land in Phase
+// 1"). Both are `pub(crate)`: the FROZEN public contract — no Clone/Copy, no
+// Serialize, no non-redacting Debug, ZeroizeOnDrop, consumed by value — is
+// unchanged. The single-use container is the same; only its crate-internal body
+// is filled (phase1-spec §1.1/§2; sign.rs is the only caller).
+impl SigningNonces {
+    /// Build the single-use pair from the hedged nonce scalars `d_i`, `e_i`
+    /// derived in `sign::commit` (`H3(random ‖ encode(share))`).
+    pub(crate) fn from_scalars(hiding: GScalar, binding: GScalar) -> Self {
+        SigningNonces {
+            hiding: hiding.as_scalar(),
+            binding: binding.as_scalar(),
+        }
+    }
+
+    /// Consume the pair, returning `(d_i, e_i)` for the round-2 partial. The
+    /// stored copies are zeroized when `self` is dropped at the end of this call,
+    /// so the container cannot be reused — single use enforced by value.
+    pub(crate) fn into_scalars(self) -> (GScalar, GScalar) {
+        (
+            GScalar::from_scalar(self.hiding),
+            GScalar::from_scalar(self.binding),
+        )
+    }
+}
+
 /// A degree-`(t-1)` secret polynomial `a_0 + a_1·x + … + a_{t-1}·x^{t-1}` used
 /// by trusted-dealer keygen. The constant term `a_0` is the group secret. The
 /// coefficients are zeroized on drop, after shares are derived.
