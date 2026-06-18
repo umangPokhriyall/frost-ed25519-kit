@@ -11,6 +11,8 @@
 //! - `frost-ed25519-2.2.0/src/lib.rs:142-160,179-207` (H1–H5, contextString).
 //! - `frost-core-2.2.0/src/lib.rs:415-447` (rho input prefix) and
 //!   `frost-core-2.2.0/src/round1.rs:392-404` (commitment-list encoding).
+//! - `frost-ed25519-2.2.0/src/lib.rs:211-212` (HDKG label) and
+//!   `frost-core-2.2.0/src/keys/dkg.rs:412-430` (DKG PoK challenge input order).
 
 use curve25519_dalek::scalar::Scalar;
 use sha2::{Digest, Sha512};
@@ -37,6 +39,13 @@ pub const H4_LABEL: &[u8] = b"msg";
 /// RFC 9591 §6.1 H5 (commitment-list hash) domain label.
 /// `frost-ed25519-2.2.0/src/lib.rs:207` — `hash_to_array([contextString, b"com", m])`.
 pub const H5_LABEL: &[u8] = b"com";
+
+/// FROST DKG proof-of-knowledge challenge (`H_dkg`) domain label (phase2-spec §5).
+/// `frost-ed25519-2.2.0/src/lib.rs:211-212` — `HDKG(m) = hash_to_scalar([contextString,
+/// b"dkg", m])`. There is no separate context-string argument in the challenge
+/// preimage: the contextString and this `"dkg"` label are prepended by `HDKG`
+/// itself, exactly as `"rho"`/`"nonce"` are for H1/H3.
+pub const HDKG_LABEL: &[u8] = b"dkg";
 
 // RFC 9591 §6.1 H2 (challenge) has NO contextString and NO label: it is
 // `hash_to_scalar([m])` (`frost-ed25519-2.2.0/src/lib.rs:186`), so the challenge
@@ -96,6 +105,14 @@ pub fn h4(msg: &[u8]) -> [u8; 64] {
 /// RFC 9591 §6.1 H5: commitment-list hash `H(contextString ‖ "com" ‖ encoded)` → 64 bytes.
 pub fn h5(encoded: &[u8]) -> [u8; 64] {
     sha512(&[CONTEXT_STRING, H5_LABEL, encoded])
+}
+
+/// FROST DKG `H_dkg`: PoK challenge `H(contextString ‖ "dkg" ‖ m) mod L` (phase2-spec §5).
+/// The caller supplies `m = id_enc ‖ φ_{i,0}_enc ‖ R_i_enc` (the input order is fixed
+/// in `dkg::pok_challenge`, matching `frost-core-2.2.0/src/keys/dkg.rs:412-430`); the
+/// wide reduction mirrors H1/H3.
+pub fn hdkg(parts: &[&[u8]]) -> GScalar {
+    reduce_wide(&with_prefix(&[CONTEXT_STRING, HDKG_LABEL], parts))
 }
 
 /// RFC 9591 §4.3 `encode_group_commitment_list`: the `(identifier, D_i, E_i)`
