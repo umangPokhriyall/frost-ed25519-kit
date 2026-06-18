@@ -14,7 +14,8 @@
 //! - `secret`  — Zeroizing secret types, single-use nonces. FROZEN after P0.
 //! - `error`   — the crate error enum (includes `Culprit`, defined now for P1).
 //! - `vss`     — Feldman commitments + verification. FROZEN after P0.
-//! - `keygen`  — trusted-dealer keygen (+ public verifying shares); Pedersen DKG in P2.
+//! - `keygen`  — trusted-dealer keygen (+ public verifying shares); retained as the P2 fallback.
+//! - `dkg`     — Pedersen verifiable DKG (P2): round 1 + rogue-key PoK so far.
 //! - `ciphersuite` — FROST(Ed25519, SHA-512) constants + H1–H5 (phase1-spec §3).
 //! - `sign`    — round 1 `commit` (hedged), round 2 `sign`, `aggregate` (identifiable abort).
 //! - `verify`  — RFC 8032 aggregate `verify` + per-partial `verify_share`.
@@ -25,6 +26,7 @@
 #![forbid(unsafe_code)]
 
 pub mod ciphersuite;
+pub mod dkg;
 pub mod error;
 pub mod group;
 pub mod keygen;
