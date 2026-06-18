@@ -374,6 +374,42 @@ mod tests {
         assert_ne!(c.hiding, c.binding);
     }
 
+    // DoD §6 / amendment §3: the hedge mixes encode(share) into H3(random ‖ share),
+    // so a fully predictable RNG cannot cause nonce reuse across distinct shares.
+    #[test]
+    fn commit_hedge_mixes_share_entropy() {
+        use rand::SeedableRng;
+        use rand::rngs::StdRng;
+
+        let id = Identifier::try_from_u64(1).unwrap();
+        let share_a = SigningShare::from_canonical_bytes({
+            let mut b = [0u8; 32];
+            b[0] = 3;
+            b
+        })
+        .unwrap();
+        let share_b = SigningShare::from_canonical_bytes({
+            let mut b = [0u8; 32];
+            b[0] = 7;
+            b
+        })
+        .unwrap();
+
+        // Same deterministic RNG state, DIFFERENT share -> different nonce
+        // commitments, because the share entropy is mixed in.
+        let (_na, ca) = commit(id, &share_a, &mut StdRng::seed_from_u64(42));
+        let (_nb, cb) = commit(id, &share_b, &mut StdRng::seed_from_u64(42));
+        assert_ne!(ca.hiding, cb.hiding);
+        assert_ne!(ca.binding, cb.binding);
+
+        // Same RNG state, SAME share -> identical commitments: the construction is
+        // a deterministic function of (random ‖ share). A predictable RNG alone
+        // therefore cannot silently force a collision between two distinct shares.
+        let (_nc, cc) = commit(id, &share_a, &mut StdRng::seed_from_u64(42));
+        assert_eq!(ca.hiding, cc.hiding);
+        assert_eq!(ca.binding, cc.binding);
+    }
+
     // Full keygen → commit → sign for the `signers` of a `t`-of-`n` group, returning
     // the partials, the commitment set, and the public package.
     fn run_round(
