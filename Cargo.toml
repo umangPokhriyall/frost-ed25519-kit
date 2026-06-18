@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["frost-core"]
+# legacy/ is the archived naive scheme — the Phase 3 ROS attack target. It is a
+# separate member, NOT a dependency of frost-core (phase1-spec §8).
+members = ["frost-core", "legacy"]
 
 [workspace.package]
 edition = "2024"

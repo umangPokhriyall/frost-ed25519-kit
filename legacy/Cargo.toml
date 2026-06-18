@@ -1,0 +1,20 @@
+[package]
+name = "legacy"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Archived naive single-key Schnorr scheme — the Phase 3 ROS attack target. Built and smoke-tested only; NOT wired into frost-core."
+publish = false
+
+[lints]
+workspace = true
+
+# phase1-spec §2: legacy depends only on curve25519-dalek + rand, plus the SHA-512
+# of the Schnorr challenge (sha2 — same ciphersuite hash already approved for the
+# shipped graph; curve25519-dalek does not re-export a hash). Excluded from the
+# public API surface; never enters the frost-core dependency graph.
+[dependencies]
+curve25519-dalek.workspace = true
+rand.workspace = true
+sha2.workspace = true
