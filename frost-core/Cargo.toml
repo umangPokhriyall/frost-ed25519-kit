@@ -10,14 +10,20 @@ publish = false
 [lints]
 workspace = true
 
-# phase0-spec §2.3 dependency allowlist — nothing else.
+# phase0-spec §2.3 allowlist + the SHA-512 of FROST(Ed25519, SHA-512) (phase1-spec §3).
 [dependencies]
 curve25519-dalek.workspace = true
 zeroize.workspace = true
 rand_core.workspace = true
 subtle.workspace = true
 thiserror.workspace = true
+sha2.workspace = true
 
+# phase1-spec §2: frost-ed25519 is the differential ORACLE — dev-only, must never
+# enter the shipped graph (DoD §8, checked with `cargo tree -e normal`).
 [dev-dependencies]
 rand.workspace = true
 hex.workspace = true
+frost-ed25519.workspace = true
+proptest.workspace = true
+serde_json.workspace = true

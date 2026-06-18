@@ -20,6 +20,17 @@ zeroize = { version = "1", features = ["zeroize_derive"] }
 rand_core = "0.6"
 subtle = "2"      # constant-time equality / choice
 thiserror = "2"   # error derive only; no runtime cost
+# phase1-spec §3: the SHA-512 of FROST(Ed25519, SHA-512). Pure compute, no IO,
+# no unsafe in our usage — the one ciphersuite-mandated addition to the Phase 0
+# shipped graph (approved 2026-06-18). Supersedes the literal "shipped graph
+# unchanged" wording of phase1-spec §2 / DoD §8, which predates noticing that
+# curve25519-dalek does not bundle or re-export a hash.
+sha2 = "0.10"
 # dev-dependencies:
 rand = "0.8"      # test RNG only
 hex = "0.4"       # KAT/test vector decoding only
+# phase1-spec §2: differential oracle + harness — DEV-ONLY, never in the shipped
+# graph (verified with `cargo tree -e normal`).
+frost-ed25519 = "2"
+proptest = "1"
+serde_json = "1"
