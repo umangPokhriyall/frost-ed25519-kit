@@ -1,0 +1,110 @@
+# Supply-chain policy for frost-ed25519-kit (phase3-spec §6.1).
+#
+# The shipped `frost-core` graph is SIX crates and nothing else
+# (curve25519-dalek, rand_core, sha2, subtle, thiserror, zeroize). This file is
+# the enforcement: it bans anything outside that set from the normal graph, pins a
+# permissive-license allowlist, and forbids any source other than crates.io. A
+# threshold-signature primitive with six audited dependencies and
+# `#![forbid(unsafe_code)]` is itself a security argument (ARCHITECTURE.md).
+#
+# Run: `cargo deny check`  (advisories + bans + licenses + sources).
+# Graph scope: `-e normal` semantics — dev-dependencies (frost-ed25519, proptest,
+# rand, hex, serde_json, legacy) and the fuzz crate are NOT part of the shipped
+# graph and are intentionally out of the allowlist below; see `[graph]`.
+
+[graph]
+# Evaluate the SHIPPED normal graph only — what `cargo tree -e normal -p frost-core`
+# shows. Dev-dependencies (the differential oracle `frost-ed25519`, proptest, rand,
+# hex, serde_json) are test-only; the `legacy` attack target and the `fuzz` crate
+# are separate, never-shipped members. All are excluded so the gate matches the
+# six-crate invariant the DoD checks rather than the whole workspace's test graph.
+exclude-dev = true
+all-features = false
+exclude = ["legacy", "frost-core-fuzz"]
+
+# ---------------------------------------------------------------------------
+# Advisories — zero open RUSTSEC advisories in the shipped graph (§6.1).
+# ---------------------------------------------------------------------------
+[advisories]
+version = 2
+# Fail on any advisory or yanked crate; no ignores.
+yanked = "deny"
+ignore = []
+
+# ---------------------------------------------------------------------------
+# Licenses — permissive allowlist. Every shipped crate is MIT/Apache-2.0/BSD-style.
+# ---------------------------------------------------------------------------
+[licenses]
+version = 2
+# Refuse anything not on this list.
+# Exactly the licenses present in the shipped graph (each crate is multi-licensed
+# and resolves to one of these): MIT/Apache-2.0 for most, BSD-3-Clause for
+# curve25519-dalek + subtle, Unicode-3.0 for unicode-ident.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.9
+
+# ---------------------------------------------------------------------------
+# Bans — the six-crate allowlist. Anything else in the normal graph is an error.
+# ---------------------------------------------------------------------------
+[bans]
+# A crate in the graph that is NOT in `allow` below is denied. This list is the
+# EXACT enumeration of `cargo tree -e normal -p frost-core` (plus the unavoidable
+# build-time crates), reviewed crate by crate — not a wildcard.
+allow = [
+    # --- The crate under audit (this workspace member). ---
+    { crate = "frost-core" },
+
+    # --- The SIX shipped direct dependencies (phase0-spec §2.3 + phase1-spec §3).
+    #     These are the audited surface ARCHITECTURE.md counts. ---
+    { crate = "curve25519-dalek" },
+    { crate = "rand_core" },
+    { crate = "sha2" },
+    { crate = "subtle" },
+    { crate = "thiserror" },
+    { crate = "zeroize" },
+
+    # --- Normal transitive deps of the six (proc-macro derives + the SHA-2 digest
+    #     stack + the curve backend). Each is pulled by a shipped crate, not a
+    #     direct choice; listed so the shipped graph is an exact reviewed set. ---
+    { crate = "curve25519-dalek-derive" }, # proc-macro for curve25519-dalek
+    { crate = "zeroize_derive" },          # proc-macro for zeroize
+    { crate = "thiserror-impl" },          # proc-macro for thiserror
+    { crate = "fiat-crypto" },             # curve25519-dalek formally-verified field backend
+    { crate = "cfg-if" },
+    { crate = "cpufeatures" },
+    { crate = "libc" },                    # cpufeatures CPU-feature detection (platform-conditional)
+    { crate = "digest" },
+    { crate = "block-buffer" },
+    { crate = "crypto-common" },
+    { crate = "generic-array" },
+    { crate = "typenum" },
+    { crate = "proc-macro2" },
+    { crate = "quote" },
+    { crate = "syn" },
+    { crate = "unicode-ident" },
+
+    # --- BUILD-time-only crates (curve25519-dalek / generic-array build scripts).
+    #     Absent from the runtime `-e normal` graph; they compile a shipped crate
+    #     but ship no code themselves. Enumerated, not wildcarded. ---
+    { crate = "rustc_version" }, # curve25519-dalek build.rs rustc-version gate
+    { crate = "semver" },        # used by rustc_version
+    { crate = "version_check" }, # generic-array build.rs
+]
+# No crate may appear at two different versions in the shipped graph.
+multiple-versions = "deny"
+# A wildcard (`*`) version requirement on any dependency is an error.
+wildcards = "deny"
+
+# ---------------------------------------------------------------------------
+# Sources — crates.io only; no git or alternative registries.
+# ---------------------------------------------------------------------------
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
