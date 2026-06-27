@@ -3,6 +3,10 @@ resolver = "3"
 # legacy/ is the archived naive scheme — the Phase 3 ROS attack target. It is a
 # separate member, NOT a dependency of frost-core (phase1-spec §8).
 members = ["frost-core", "legacy"]
+# fuzz/ is the cargo-fuzz crate (phase3-spec §5): its own workspace, needs a
+# nightly toolchain, and is deliberately OUTSIDE this build/clippy/test gate so the
+# shipped build stays stable. Excluded explicitly; see fuzz/README.md.
+exclude = ["fuzz"]
 
 [workspace.package]
 edition = "2024"

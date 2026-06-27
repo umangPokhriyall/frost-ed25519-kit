@@ -1,0 +1,99 @@
+# frost-core-fuzz — cargo-fuzz crate (phase3-spec §5).
+#
+# This is its OWN workspace (the empty `[workspace]` table below), so it is NOT a
+# member of the root `cargo build` / `clippy -D warnings` / `cargo test` gate — the
+# shipped build stays stable and `cargo-fuzz`'s nightly toolchain requirement never
+# leaks into it (phase3-spec §5; README.md).
+#
+# The libFuzzer targets live behind the `libfuzzer` feature (`required-features`),
+# so `cargo test --manifest-path fuzz/Cargo.toml` builds only the invariant library
+# and the stable bounded harness (`tests/bounded.rs`) — no nightly, no libFuzzer
+# linkage. `cargo +nightly fuzz run --features libfuzzer <target>` runs the real
+# coverage-guided fuzzer.
+
+[package]
+name = "frost-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Own workspace: excluded from the root frost-ed25519-kit workspace gate.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+# The crate under test. Test-only graph; never shipped.
+frost-core = { path = "../frost-core" }
+# Only linked when the `libfuzzer` feature is on (the fuzz-target bins); the stable
+# bounded harness does not pull it in.
+libfuzzer-sys = { version = "0.4", optional = true }
+
+[dev-dependencies]
+# Deterministic input generation for the stable bounded harness only.
+rand = "0.8"
+
+[features]
+# Enables the libFuzzer-linked fuzz-target binaries (nightly + cargo-fuzz).
+libfuzzer = ["dep:libfuzzer-sys"]
+
+# Optimize dependencies (curve25519-dalek, sha2, frost-core) even in the dev/test
+# profile so the bounded harness and libFuzzer runs do millions of curve ops in
+# reasonable time. Mirrors the root workspace's build-config-only override; the
+# shipped graph is untouched.
+[profile.dev.package."*"]
+opt-level = 3
+
+# One target per real public byte-deserializer (phase3-spec §5; see README for why
+# SigningCommitments / SignatureShare / round1::Package are not separate targets).
+[[bin]]
+name = "gscalar_from_canonical_bytes"
+path = "fuzz_targets/gscalar_from_canonical_bytes.rs"
+test = false
+doc = false
+bench = false
+required-features = ["libfuzzer"]
+
+[[bin]]
+name = "gelement_from_compressed"
+path = "fuzz_targets/gelement_from_compressed.rs"
+test = false
+doc = false
+bench = false
+required-features = ["libfuzzer"]
+
+[[bin]]
+name = "identifier_from_canonical_bytes"
+path = "fuzz_targets/identifier_from_canonical_bytes.rs"
+test = false
+doc = false
+bench = false
+required-features = ["libfuzzer"]
+
+[[bin]]
+name = "signing_share_from_canonical_bytes"
+path = "fuzz_targets/signing_share_from_canonical_bytes.rs"
+test = false
+doc = false
+bench = false
+required-features = ["libfuzzer"]
+
+[[bin]]
+name = "signature_from_bytes"
+path = "fuzz_targets/signature_from_bytes.rs"
+test = false
+doc = false
+bench = false
+required-features = ["libfuzzer"]
+
+[[bin]]
+name = "round2_package_deserialize"
+path = "fuzz_targets/round2_package_deserialize.rs"
+test = false
+doc = false
+bench = false
+required-features = ["libfuzzer"]
