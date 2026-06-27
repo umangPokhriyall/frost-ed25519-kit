@@ -1,0 +1,5 @@
+# cargo-fuzz build + run artifacts (regenerated locally). The seed corpus/ is
+# tracked; libFuzzer's discovered inputs, crash artifacts, and coverage are not.
+/target
+/artifacts
+/coverage
