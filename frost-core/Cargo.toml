@@ -31,3 +31,8 @@ serde_json.workspace = true
 # tests/ros_resistance.rs. DEV-ONLY — `legacy` (publish = false) must never enter
 # the shipped graph (`cargo tree -e normal -p frost-core` proves it).
 legacy = { path = "../legacy" }
+# phase4-spec §5: example-only. ed25519-dalek is the INDEPENDENT verifier for
+# examples/solana_compat.rs; bs58 encodes the Solana address. Never shipped
+# (`cargo tree -e normal -p frost-core` is unchanged — the six crates).
+ed25519-dalek.workspace = true
+bs58.workspace = true
