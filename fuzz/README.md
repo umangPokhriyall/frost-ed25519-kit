@@ -68,21 +68,69 @@ requirement. `cargo tree -e normal -p frost-core` is unchanged by this crate.
 ## Committed budget — measured, not "clean"
 
 Absence of a crash within a budget is not proof of total absence (phase3-spec §5).
-The committed budget is what was **actually run**, reported as exec count:
+The committed budget is what was **actually run**, reported as exec count.
 
-- **Stable bounded harness** (`tests/bounded.rs`, this environment, no libFuzzer):
-  **3,600,036 execs across 6 targets, 0 crashes.**
-  Per target: 6 fixed edge seeds + 3 input widths × 200,000 seeded-PRNG draws =
-  600,006 execs. Reproduce:
+### What the coverage-guided run found (and the bounded floor missed)
+
+The Phase 4 coverage-guided libFuzzer run (below) found a real defect within
+seconds that the bounded floor's random draws never hit: `GElement::from_compressed`
+accepted **non-canonical point encodings** — a y-coordinate `>= the field prime`
+(e.g. `EE FF..FF`, which is `y = p + 1`), and a set sign bit on the `x = 0` point
+(`01 00..00 80`). dalek's `decompress()` silently canonicalizes these, so two
+distinct byte strings denoted the same point — a malleability vector and a
+"reject, never coerce" violation. Two targets crashed on it:
+`gelement_from_compressed` and `signature_from_bytes` (the latter parses `R`
+through `from_compressed`).
+
+The bounded floor missed it because there are only ~19 non-canonical `y` values out
+of `2^255`; uniform random 32-byte draws essentially never land on one. A
+coverage-guided fuzzer, steered by the decode/torsion branches, reaches them fast.
+This is exactly the strengthening phase3/§3.3 reserved the real run for.
+
+**Fix** (authorized post-freeze exception, recorded in `CLAUDE.md`): `group.rs`
+`from_compressed` now applies RFC 8032 strict decoding — re-encode the decompressed
+point and reject if it differs from the input, before the torsion check.
+Regression-pinned in `frost-core/tests/adversarial.rs`. After the fix all six
+targets are crash-free (numbers below).
+
+### Coverage-guided libFuzzer — the real run (Phase 4, post-fix)
+
+Toolchain: `cargo 1.98.0-nightly` + `cargo-fuzz 0.13.2`, libFuzzer + AddressSanitizer,
+`-max_total_time=60` per target. **104,624,899 execs across 6 targets, 0 crashes.**
+
+| target | execs | wall-time | crashes |
+|---|---|---|---|
+| `gscalar_from_canonical_bytes`       | 25,104,249 | 61 s | 0 |
+| `gelement_from_compressed`           |  1,936,018 | 61 s | 0 |
+| `identifier_from_canonical_bytes`    | 21,047,225 | 61 s | 0 |
+| `signing_share_from_canonical_bytes` | 22,781,943 | 61 s | 0 |
+| `signature_from_bytes`               |  2,065,545 | 61 s | 0 |
+| `round2_package_deserialize`         | 31,689,919 | 61 s | 0 |
+
+The two point-parsing targets execute far fewer iterations per second: each
+decompress + strict re-encode + torsion check is a full curve operation, and the
+fuzzer explores far more states there (`cov: 298`/`363` vs `~160` for the scalar
+targets). 60 s is the committed per-target budget; absence of a crash within it is
+not proof of total absence (phase3-spec §5). Reproduce:
+```sh
+cargo +nightly fuzz run --features libfuzzer <target> -- -max_total_time=60
+```
+
+### Stable bounded harness — the CI-runnable floor
+
+- **`tests/bounded.rs`** (this environment, no libFuzzer): **3,600,036 execs across
+  6 targets, 0 crashes.** Per target: 6 fixed edge seeds + 3 input widths ×
+  200,000 seeded-PRNG draws = 600,006 execs. Reproduce:
   ```sh
   cargo test --manifest-path fuzz/Cargo.toml --test bounded -- --nocapture
   ```
-- **Coverage-guided libFuzzer**: not run in this environment (no nightly /
-  cargo-fuzz). Run locally with the commands above; record `N execs, 0 crashes`
-  here when done. This is the exhaustive version; the bounded harness is the
-  committed floor.
+  This is the stable floor that runs without nightly; the coverage-guided run above
+  is the exhaustive version.
 
 The seed corpus (`corpus/<target>/`) includes the boundary encodings: the zero
 scalar/identifier, the group order `L` (smallest non-canonical scalar), an order-8
-(non-prime-order) point, the Ed25519 basepoint and identity, and a valid round-2
-package.
+(non-prime-order) point, the Ed25519 basepoint and identity, a valid round-2
+package, and — added in Phase 4 — the two non-canonical point encodings the
+coverage-guided run found (`seed-noncanonical-y-p-plus-1`,
+`seed-noncanonical-r-sign-bit`), so the regression seed is committed, not only
+discovered. The behavioural regression guard is `frost-core/tests/adversarial.rs`.

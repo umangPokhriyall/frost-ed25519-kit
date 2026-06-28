@@ -331,6 +331,10 @@ mod tests {
         let contents = format!(
             "ROS forgery against the legacy naive-Schnorr oracle (BLLOR 2020)\n\
              ================================================================\n\
+             NOTE: the wall-clock below is a live benchmark figure, re-measured on\n\
+             every run of this suite (expect single-digit to low-tens-of-ms\n\
+             variance). The forgery's SUCCESS, not its speed, is the result.\n\
+             \n\
              ℓ={ell} sessions, forgery in {ms} ms\n\
              \n\
              m* = {m_star:?}\n\

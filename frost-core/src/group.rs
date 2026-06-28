@@ -95,6 +95,19 @@ impl GElement {
         let point = CompressedEdwardsY(b)
             .decompress()
             .ok_or(Error::InvalidPointEncoding)?;
+        // RFC 8032 strict decoding: reject NON-CANONICAL encodings (a y-coordinate
+        // >= the field prime, or a set sign bit on the x = 0 points). dalek's
+        // `decompress()` accepts and silently canonicalizes these, which would let
+        // two distinct byte strings denote the same point (a malleability vector
+        // and a "coerce, never reject" violation of the group-layer contract). So
+        // re-encode and require byte-for-byte equality with the input before any
+        // further use. The input is a public point encoding, so the comparison is
+        // not required to be constant-time. (Found by the Phase 4 coverage-guided
+        // fuzz run; the Phase 3 bounded floor's random draws missed the ~19
+        // non-canonical y values — see fuzz/README.md.)
+        if point.compress().to_bytes() != b {
+            return Err(Error::InvalidPointEncoding);
+        }
         if point.is_torsion_free() {
             Ok(GElement(point))
         } else {
