@@ -1,6 +1,10 @@
 ROS forgery against the legacy naive-Schnorr oracle (BLLOR 2020)
 ================================================================
-ℓ=256 sessions, forgery in 48.819587999999996 ms
+NOTE: the wall-clock below is a live benchmark figure, re-measured on
+every run of this suite (expect single-digit to low-tens-of-ms
+variance). The forgery's SUCCESS, not its speed, is the result.
+
+ℓ=256 sessions, forgery in 50.316832 ms
 
 m* = "FORGERY: this message was never signed by any honest session"
 m*  verifies under [8]·z*·G == [8]·(R* + H(R* ‖ X ‖ m*)·X): yes

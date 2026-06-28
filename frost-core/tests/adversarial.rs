@@ -219,11 +219,32 @@ fn gelement_rejects_bad_and_non_prime_order_points() {
         GElement::from_compressed(ORDER_8_POINT),
         Err(Error::NonPrimeOrderPoint)
     ));
-    // All-0xFF decodes to a non-torsion-free point → NonPrimeOrderPoint, also
-    // rejected (it is not InvalidPointEncoding — the cofactor guard is what stops it).
+    // Non-canonical y (>= the field prime) is rejected by RFC 8032 strict decoding
+    // BEFORE the cofactor guard. All-0xFF clears to y = 2^255 - 1 = p + 18, which
+    // dalek's decompress() would canonicalize; from_compressed re-encodes and sees
+    // the mismatch → InvalidPointEncoding (not NonPrimeOrderPoint).
     assert!(matches!(
         GElement::from_compressed([0xff; 32]),
-        Err(Error::NonPrimeOrderPoint)
+        Err(Error::InvalidPointEncoding)
+    ));
+    // Regression for the Phase 4 fuzz finding: y = EE FF..FF clears to y = p + 1,
+    // which canonicalizes to a torsion-free point (re-encodes to [1,0,..,0]). Such
+    // a non-canonical encoding of an OTHERWISE-VALID point must also be rejected,
+    // not silently coerced.
+    let mut noncanon_y = [0xffu8; 32];
+    noncanon_y[0] = 0xee;
+    assert!(matches!(
+        GElement::from_compressed(noncanon_y),
+        Err(Error::InvalidPointEncoding)
+    ));
+    // Non-canonical sign bit on the x = 0 point (compressed identity y = 1 with the
+    // sign bit set) must be rejected too — same malleability class.
+    let mut noncanon_sign = [0u8; 32];
+    noncanon_sign[0] = 1;
+    noncanon_sign[31] = 0x80;
+    assert!(matches!(
+        GElement::from_compressed(noncanon_sign),
+        Err(Error::InvalidPointEncoding)
     ));
 }
 

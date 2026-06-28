@@ -31,6 +31,18 @@ version = 2
 yanked = "deny"
 ignore = []
 
+# Lockfile-orphan decision (phase4-spec §3.4), recorded — NOT ignored.
+#   `cargo audit` reports RUSTSEC-2023-0089 (atomic-polyfill 1.0.3, unmaintained).
+#   atomic-polyfill is a Cargo.lock orphan with NO path in the shipped graph: it
+#   enters only through the DEV-ONLY differential oracle `frost-ed25519`
+#   (frost-ed25519 -> frost-core 2.2.0 -> postcard -> heapless -> atomic-polyfill),
+#   is target-gated, and is absent from `cargo tree -e normal -p frost-core`
+#   (the six shipped crates). It is informational ("unmaintained"), not a
+#   vulnerability, and touches no code we ship.
+#   Decision: leave it documented; do NOT run a blanket `cargo update` to churn
+#   the lockfile of a security primitive for an out-of-graph informational
+#   advisory. `ignore` stays empty so a real in-graph advisory still fails the gate.
+
 # ---------------------------------------------------------------------------
 # Licenses — permissive allowlist. Every shipped crate is MIT/Apache-2.0/BSD-style.
 # ---------------------------------------------------------------------------
