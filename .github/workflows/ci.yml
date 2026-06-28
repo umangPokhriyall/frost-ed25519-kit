@@ -1,0 +1,57 @@
+# CI gate for the stable workspace (phase4-spec §8). Mirrors the per-session local
+# gate — build + clippy -D warnings + test — and adds the supply-chain checks so
+# "CI green" in the brief DoD is real. The fuzz/ crate needs nightly and is
+# OUTSIDE this workspace (root Cargo.toml `exclude = ["fuzz"]`), so --workspace
+# does not build or test it here. The toolchain is pinned to a specific stable
+# for reproducibility.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-test:
+    name: build + clippy + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned stable toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build (workspace; fuzz/ excluded by the root manifest)
+        run: cargo build --workspace
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test (workspace; fuzz/ excluded by the root manifest)
+        run: cargo test --workspace
+
+  supply-chain:
+    name: cargo deny + cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: cargo deny (advisories + bans + licenses + sources)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+
+      - name: cargo audit
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
