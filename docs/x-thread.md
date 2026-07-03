@@ -9,7 +9,7 @@ number has not earned; no ask. Reviewed against the repo before posting.
 I shipped a "threshold MPC" Solana signer, then audited my own code. The
 coordinator held the whole key, and the signing scheme was forgeable. So I forged
 it on purpose: a valid signature on a message no honest session ever signed, in
-~49 ms.
+~50 ms.
 (`legacy/results/ros_forgery.txt`)
 
 **2/**
@@ -22,7 +22,7 @@ clear.
 Naive concurrent Schnorr is broken by the ROS attack (Benhamouda–Lepoint–Loss–
 Orrù–Raykova 2020): open ℓ concurrent sessions, treat their challenges as a linear
 system, and solve for a forgery on an unsigned message. I ran it against the old
-scheme: 256 sessions, forgery in ~49 ms. (`legacy/results/ros_forgery.txt`,
+scheme: 256 sessions, forgery in ~50 ms. (`legacy/results/ros_forgery.txt`,
 `frost-core/tests/ros_resistance.rs`)
 
 **4/**

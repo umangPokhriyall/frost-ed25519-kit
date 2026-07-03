@@ -21,7 +21,7 @@
    (intermediates-first), differential vs frost-ed25519 (DEV-DEP ORACLE ONLY, never shipped).
 5. DKG is abort-and-identify (supersedes the brief's "complaint round"): bad PoK/share/rogue key
    -> Culprit(id). PoK verified, rogue-key-resistant.
-6. ROS: the legacy scheme is forgeable in ~49 ms (legacy/results/ros_forgery.txt); FROST returns
+6. ROS: the legacy scheme is forgeable in ~50 ms (legacy/results/ros_forgery.txt); FROST returns
    RosOutcome::NoSolution (structural). The binding-factor argument lives in ros_resistance.rs.
 7. Shipped graph = six crates (curve25519-dalek, rand_core, sha2, subtle, thiserror, zeroize).
    Verify with cargo tree -e normal. legacy/fuzz/ed25519-dalek/bs58/frost-ed25519/proptest/

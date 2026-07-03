@@ -70,7 +70,7 @@ The naive single-key Schnorr scheme this repo replaced is **forgeable in
 milliseconds**. The Phase 3 artifact `legacy/results/ros_forgery.txt` records a
 Benhamouda–Lefranc–Loss–Orsini–Raykova (2020) polynomial-time ROS forgery:
 **ℓ = 256 concurrent sessions, a verifying signature on a message no session ever
-signed, in ~49 ms**, produced without the secret. That is the numeric proof the
+signed, in ~50 ms**, produced without the secret. That is the numeric proof the
 rebuild was necessary.
 
 The fix is FROST's **binding factor**. Each signer commits a *pair* `(D_i, E_i)`,

@@ -13,7 +13,7 @@ reconstruct the full private key, and the signing scheme was a naive concurrent
 Schnorr that is forgeable. To prove the second is not theoretical, the old scheme
 is kept under `legacy/` and attacked directly: a self-mounted ROS (BLLOR 2020)
 attack forges a valid signature on a message no honest session ever signed, in
-~49 ms over 256 concurrent sessions (`legacy/results/ros_forgery.txt`).
+~50 ms over 256 concurrent sessions (`legacy/results/ros_forgery.txt`).
 
 It was then rebuilt as RFC 9591 FROST(Ed25519, SHA-512). The audit-then-rebuild is
 the point: the forgery is committed, reproducible evidence that the original
