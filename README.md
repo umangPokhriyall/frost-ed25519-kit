@@ -5,6 +5,18 @@ byte-for-byte against the RFC 9591 vectors, `#![forbid(unsafe_code)]` crate-wide
 six shipped dependencies (`cargo tree -e normal -p frost-core` — `curve25519-dalek`,
 `rand_core`, `sha2`, `subtle`, `thiserror`, `zeroize`).
 
+## Reproducibility (and where this sits in the portfolio)
+
+Every result here is **hardware-independent**: cryptographic known-answer tests
+against the RFC 9591 vectors, a ≥10,000-case differential, and a wall-clock ROS
+forgery whose *success* — not its speed — is the claim. They reproduce on any
+x86-64 with a stable Rust toolchain; no PMU, no special silicon. This is
+deliberate: the sibling repos whose claims *do* depend on hardware (the TCP-server
+I/O teardown, the low-latency order book, the transcoding control plane) were
+re-run and re-measured on rented AMD EPYC bare metal, and each states which of its
+claims are silicon-dependent and which are not. Knowing that difference — and
+proving it per repo — is itself the signal.
+
 ## How this started, and why that is the credential
 
 This repository began as a "threshold MPC" Solana signer. An audit of that code
