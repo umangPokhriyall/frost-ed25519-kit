@@ -51,12 +51,21 @@ has no linear system to solve. The same solver returns `RosOutcome::NoSolution`
 against FROST. (`frost-core/tests/ros_resistance.rs`, `docs/THREAT-MODEL.md` §4)
 
 **8/**
+An honest one: I fuzzed my own frozen code and it found a bug. The coverage-guided
+fuzzer (one libFuzzer target per deserializer, 104M+ execs) caught a non-canonical
+point encoding the random-input floor missed — two distinct byte-strings decoding to
+one point, a malleability vector. `curve25519-dalek`'s `decompress` canonicalizes it
+silently; I now re-encode and reject (RFC 8032 strict). Fixed under an authorized
+post-freeze exception, regression-pinned. (`fuzz/README.md`,
+`frost-core/tests/adversarial.rs`)
+
+**9/**
 The surface. `#![forbid(unsafe_code)]` crate-wide, sans-IO (no network, no
 database, no `solana-*` in the crypto path), six shipped dependencies
 (`cargo tree -e normal`). Secrets are zeroized after use and nonces are hedged
 `H3(random ‖ encode(secret))`. (`docs/ARCHITECTURE.md`, `frost-core/src/secret.rs`)
 
-**9/**
+**10/**
 Repo and threat model below. The DKG private-channel assumption and the
 abort-and-identify (non-robust) property are stated up front.
 github.com/umangPokhriyall/frost-ed25519-kit — `docs/THREAT-MODEL.md`

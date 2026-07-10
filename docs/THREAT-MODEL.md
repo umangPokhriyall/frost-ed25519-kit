@@ -103,7 +103,7 @@ The PoK nonce is itself hedged (§7).
 
 ---
 
-## 6. Small-subgroup / cofactor
+## 6. Small-subgroup / cofactor, and canonical-encoding enforcement
 
 edwards25519 has cofactor **8**: the curve group is `8·L` points, of which only the
 prime-order `L`-subgroup is cryptographically sound. The group layer **rejects every
@@ -113,6 +113,38 @@ never enter a commitment, verifying share, or signature. This closes small-subgr
 confinement / invalid-curve attacks that a cofactor-8 curve otherwise invites
 (`tests/adversarial.rs::gelement_rejects_bad_and_non_prime_order_points`, the fuzz
 target `gelement_from_compressed`).
+
+### 6.1 Canonical-encoding enforcement (RFC 8032 strict decoding)
+
+Every point and scalar crossing the trust boundary must be its **canonical**
+encoding; a non-canonical encoding is **rejected, never coerced**. For points this is
+enforced in `GElement::from_compressed`: after decompression the point is re-encoded
+and compared byte-for-byte to the input, and any mismatch returns
+`InvalidPointEncoding` — *before* the torsion check (`frost-core/src/group.rs`).
+Scalars and identifiers decode only via `from_canonical_bytes`, which rejects any
+encoding `≥ L` as `NonCanonicalScalar` rather than reducing it.
+
+The vector this closes is **point/signature malleability**: a non-canonical `y ≥ p`
+(e.g. `0xFF…FF`, which is `y = p + 1`) or a set sign bit on the `x = 0` point
+decompresses — under a lenient decoder — to the *same* group element as a canonical
+encoding, so two distinct byte-strings would verify as the same signature.
+`curve25519-dalek`'s `decompress()` is exactly such a lenient decoder: it silently
+canonicalizes these inputs. The strict re-encode-and-compare rejects them. This is a
+**deserialization malleability guard, not a key-recovery or forgery defense** — stated
+at its exact severity, given the Ed25519/Solana positioning where signature
+non-malleability is load-bearing.
+
+How it was found: the **coverage-guided fuzz run** caught this where the random-input
+bounded floor did not. There are only ~19 non-canonical `y` values in `2^255`, which
+uniform random draws essentially never hit, but a fuzzer steered by the
+decode/torsion branches reaches them in seconds. It was an accepted non-canonical
+encoding in the then-frozen `group.rs`; it was fixed under an owner-authorized
+post-freeze exception (`docs/ARCHITECTURE.md` §4.1, `CLAUDE.md` freeze record) and
+regression-pinned with the two exact crashing inputs in
+`tests/adversarial.rs::gelement_rejects_bad_and_non_prime_order_points`
+(`seed-noncanonical-y-p-plus-1`, `seed-noncanonical-r-sign-bit` in the fuzz corpus;
+`fuzz/README.md`). This is precisely why the project mandated a coverage-guided pass
+rather than resting on the bounded floor.
 
 ---
 
@@ -191,8 +223,11 @@ The following are explicitly **not** provided; an integrator must account for th
   point arithmetic come from the backend; the library adds no further timing,
   power, or fault-injection countermeasures.
 - **Fuzzing honesty limit** — absence of a crash within a budget is not proof of
-  total absence. The committed budget is reported as an exec count, not "clean"
-  (`fuzz/README.md`: 3,600,036 execs, 0 crashes in the stable bounded pass).
+  total absence; the committed budget is reported as an exec count, not "clean." The
+  coverage-guided run (**104,624,899 execs across six deserializers, 0 crashes
+  post-fix**) is what *found* the non-canonical point-encoding malleability vector
+  §6.1 documents; the stable bounded floor (3,600,036 execs) is the CI-runnable
+  version of the same harness (`fuzz/README.md`).
 - **Zeroization honesty limit** — post-free memory scrub is unverifiable under
   `#![forbid(unsafe_code)]` (§10).
 - **RNG quality** — hedged nonces (§7) defend against a *predictable* RNG causing

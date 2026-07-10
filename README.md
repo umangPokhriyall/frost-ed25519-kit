@@ -59,14 +59,23 @@ than asserted to be correct.
 - **Hedged nonces:** `H3(random ‖ encode(secret))`, so a fully predictable RNG
   still cannot force nonce reuse; single-use is enforced by type
   (`frost-core/src/secret.rs`, `frost-core/src/sign.rs`).
-- **Validated, constant-time deserialization:** non-canonical scalars and
-  non-prime-order (cofactor / small-subgroup) points are rejected, never coerced;
-  no panic on caller- or peer-controlled input (`frost-core/src/group.rs`,
-  `frost-core/tests/adversarial.rs`, `frost-core/tests/identifiers.rs`).
+- **Validated, constant-time deserialization with strict canonical-encoding
+  enforcement:** non-canonical scalars and non-canonical / non-prime-order (cofactor /
+  small-subgroup) points are rejected, never coerced — point decoding is RFC 8032
+  strict (re-encode-and-compare), not a lenient `decompress`; no panic on caller- or
+  peer-controlled input (`frost-core/src/group.rs`, `frost-core/tests/adversarial.rs`,
+  `frost-core/tests/identifiers.rs`).
 - **ROS resistance:** the same solver that forges the legacy oracle returns
   `RosOutcome::NoSolution` against FROST — the binding factor `ρ_i = H1(group_public
   ‖ msg ‖ commitment_list ‖ id)` denies the solver its linear system
   (`frost-core/tests/ros_resistance.rs`).
+- **Coverage-guided fuzzing that found a real bug:** one libFuzzer target per
+  deserializer (104M+ execs, 0 crashes post-fix). The run caught a non-canonical
+  point-encoding malleability vector in the then-frozen `group.rs` that the
+  random-input floor missed; it was fixed with RFC 8032 strict decoding under an
+  owner-authorized post-freeze exception and regression-pinned (`fuzz/README.md`,
+  `frost-core/tests/adversarial.rs`). The methodology found a bug in the author's own
+  frozen code — which is the point.
 
 ## Quickstart
 

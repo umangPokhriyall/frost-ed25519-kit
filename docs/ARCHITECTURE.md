@@ -103,6 +103,35 @@ Each row is now substantiated by Phase 3 evidence.
 | **Pedersen DKG as the default keygen** | Trusted dealer as the only keygen | The trusted dealer is a single point that holds the whole secret `s`; it is **retained as a documented fallback** but the DKG is the default so no party ever holds `s`. The DKG reuses the same `KeyPackage`/`PublicKeyPackage` types behind the boundary. |
 | **Abort-and-identify DKG** | Robust GJKR complaint-and-continue | Abort-and-identify names the culprit and stops, **matching the ecosystem oracle** (`frost-ed25519`) and preserving the differential gate — a complaint-and-continue round would diverge from the oracle and forfeit byte-for-byte comparison. This supersedes the brief's original "complaint round." Robustness (continue with the honest subset) is explicitly out of scope (`THREAT-MODEL.md` §11). |
 
+### 4.1 The one authorized post-freeze exception — `group.rs` strict decoding
+
+`group.rs` froze at Phase 0. Exactly one change was made to it after that freeze, and
+it was **owner-authorized** — because the freeze contract's "surface it and STOP; do
+not edit a frozen module without authorization" path was followed exactly. The
+coverage-guided fuzz run found that `GElement::from_compressed` **accepted
+non-canonical point encodings** (a `y ≥ p`, or a set sign bit on the `x = 0` point);
+the agent surfaced the finding rather than silently patching frozen code, and the fix
+was applied only after authorization. `group.rs` is re-frozen post-fix.
+
+- **The design point:** strict decoding — re-encode the decompressed point and reject
+  on any byte mismatch — over trusting the curve library's `decompress`, because
+  `curve25519-dalek`'s `decompress` silently canonicalizes a non-canonical `y`. This
+  is the canonical-encoding analogue of the project's "reject, never coerce" rule and
+  the point-decoding sibling of the torsion check that already guarded small-subgroup
+  points (`THREAT-MODEL.md` §6, §6.1).
+- **The severity, stated exactly:** a deserialization malleability vector (two
+  distinct byte-strings decoding to one group element, hence to one signature), not a
+  key-recovery or forgery break. Real, and worth an authorized unfreeze; not inflated
+  beyond what it was.
+- **RFC 9591 conformance is unaffected.** A stricter *rejection* of non-canonical
+  inputs changes nothing for canonical vectors: the RFC 9591 KAT suite
+  (`tests/rfc9591_kat.rs`) and the ≥10,000-case differential against `frost-ed25519`
+  (`tests/differential.rs`) both pass post-fix. The fix narrows the accepted input set
+  at the malleability boundary; it alters no valid computation.
+- **Evidence:** the finding and both crashing inputs are in `fuzz/README.md`; the
+  behavioural regression is pinned in `frost-core/tests/adversarial.rs`; the exception
+  is recorded in `CLAUDE.md`.
+
 ---
 
 ## 5. Cross-references
