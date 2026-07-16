@@ -3,3 +3,8 @@
 # Never commit secrets again (a committed nodeDb/.env was purged from history).
 .env
 *.env
+
+# Internal development documents live in ../repo-internal/ and are never shipped.
+CLAUDE.md
+docs/specs/
+docs/x-thread.md

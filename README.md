@@ -1,23 +1,20 @@
 # frost-ed25519-kit
 
-A hand-rolled FROST-Ed25519 threshold-signature library: sans-IO, validated
-byte-for-byte against the RFC 9591 vectors, `#![forbid(unsafe_code)]` crate-wide,
-six shipped dependencies (`cargo tree -e normal -p frost-core` — `curve25519-dalek`,
-`rand_core`, `sha2`, `subtle`, `thiserror`, `zeroize`).
+An implementation of RFC 9591 FROST (Ed25519, SHA-512) in Rust.
 
-## Reproducibility (and where this sits in the portfolio)
+The repository also preserves the original naive threshold Schnorr implementation that preceded it, together with a reproducible ROS forgery demonstrating why the redesign was necessary.
 
-Every result here is **hardware-independent**: cryptographic known-answer tests
-against the RFC 9591 vectors, a ≥10,000-case differential, and a wall-clock ROS
-forgery whose *success* — not its speed — is the claim. They reproduce on any
-x86-64 with a stable Rust toolchain; no PMU, no special silicon. This is
-deliberate: the sibling repos whose claims *do* depend on hardware (the TCP-server
-I/O teardown, the low-latency order book, the transcoding control plane) were
-re-run and re-measured on rented AMD EPYC bare metal, and each states which of its
-claims are silicon-dependent and which are not. Knowing that difference — and
-proving it per repo — is itself the signal.
+Highlights:
 
-## How this started, and why that is the credential
+- RFC 9591 known-answer vectors (byte-for-byte)
+- Differential testing against an independent implementation
+- Pedersen distributed key generation (DKG)
+- Identifiable abort during signing
+- Coverage-guided fuzzing
+- `#![forbid(unsafe_code)]`
+- Sans-IO design
+
+## Background
 
 This repository began as a "threshold MPC" Solana signer. An audit of that code
 found two defects that make a threshold signer worthless: the coordinator could
@@ -27,19 +24,26 @@ is kept under `legacy/` and attacked directly: a self-mounted ROS (BLLOR 2020)
 attack forges a valid signature on a message no honest session ever signed, in
 ~50 ms over 256 concurrent sessions (`legacy/results/ros_forgery.txt`).
 
-It was then rebuilt as RFC 9591 FROST(Ed25519, SHA-512). The audit-then-rebuild is
-the point: the forgery is committed, reproducible evidence that the original
-construction was broken, and the new one is checked against the standard rather
-than asserted to be correct.
+The implementation was then rebuilt as RFC 9591 FROST (Ed25519, SHA-512). The original implementation remains under `legacy/` together with the exploit used to demonstrate the flaw.
 
-## What it is / is not
+## Scope
 
-- **Is:** a FROST-Ed25519 threshold-signature primitive — the validated group
-  layer, secret hygiene, VSS, trusted-dealer keygen, no-dealer DKG, two-round
-  signing, and verification.
-- **Is not:** a wallet, an application, a frontend, or an RPC client. There is no
-  network, no database, and no `solana-*` in the crypto path
-  (`docs/ARCHITECTURE.md` §1, the sans-IO boundary).
+This repository provides:
+
+- RFC 9591 FROST (Ed25519, SHA-512)
+- validated group layer
+- Pedersen DKG
+- trusted-dealer key generation
+- threshold signing
+- verification
+
+It does not provide:
+
+- wallets
+- RPC
+- networking
+- databases
+- Solana SDK integration
 
 ## Security properties — each with its evidence file
 
@@ -67,28 +71,29 @@ than asserted to be correct.
   `frost-core/tests/identifiers.rs`).
 - **ROS resistance:** the same solver that forges the legacy oracle returns
   `RosOutcome::NoSolution` against FROST — the binding factor `ρ_i = H1(group_public
-  ‖ msg ‖ commitment_list ‖ id)` denies the solver its linear system
+‖ msg ‖ commitment_list ‖ id)` denies the solver its linear system
   (`frost-core/tests/ros_resistance.rs`).
-- **Coverage-guided fuzzing that found a real bug:** one libFuzzer target per
-  deserializer (104M+ execs, 0 crashes post-fix). The run caught a non-canonical
-  point-encoding malleability vector in the then-frozen `group.rs` that the
-  random-input floor missed; it was fixed with RFC 8032 strict decoding under an
-  owner-authorized post-freeze exception and regression-pinned (`fuzz/README.md`,
-  `frost-core/tests/adversarial.rs`). The methodology found a bug in the author's own
-  frozen code — which is the point.
+- **Coverage-guided fuzzing:** one libFuzzer target per deserializer (104M+
+  executions, 0 crashes after the fix). The fuzzing campaign uncovered a
+  non-canonical point-encoding malleability issue in `group.rs`, which was fixed
+  by enforcing RFC 8032 strict decoding and preserved as a regression test
+  (`fuzz/README.md`, `frost-core/tests/adversarial.rs`).
 
 ## Quickstart
 
-```
+Run the in-process example:
+
+```bash
 cargo run --example in_process_2of3
 ```
 
-`frost-core/examples/in_process_2of3.rs` runs a 3-party Pedersen DKG over
-`std::sync::mpsc` channels (no dealer holds the key), then a 2-of-3 FROST
-signature, verified under RFC 8032. `frost-core/examples/solana_compat.rs` proves
-offline that the output is a standard Ed25519 signature accepted by an independent
-verifier (`ed25519-dalek`, `verify_strict`) and that the group key is a valid
-base58 Solana address — no SDK, no RPC, no broadcast.
+The example performs:
+
+1. a 3-party Pedersen DKG;
+2. a 2-of-3 FROST signing round;
+3. verification of the resulting Ed25519 signature.
+
+See `frost-core/examples/solana_compat.rs` for an offline compatibility example showing that the generated signature verifies as a standard Ed25519 signature and that the group public key can be represented as a Solana address.
 
 ## Trust model and limits
 
@@ -103,8 +108,22 @@ and names the culprit rather than continuing with the honest subset
 git clone https://github.com/umangPokhriyall/frost-ed25519-kit
 ```
 
-## The larger work
+## Repository layout
 
-The secret-hygiene discipline proven here — split trust, zeroize-after-use,
-reject-never-coerce on every untrusted input — is the substrate for handling
-secrets that transit an agent sandbox, the portfolio's flagship.
+```text
+frost-core/   RFC 9591 implementation
+legacy/       Archived naive Schnorr implementation and ROS forgery
+fuzz/         Coverage-guided fuzz targets
+docs/         Architecture and threat model
+```
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Threat model](docs/THREAT-MODEL.md)
+
+## References
+
+- RFC 9591 — FROST
+- RFC 8032 — Ed25519
+- Benhamouda et al., _One-More Discrete Logarithm and the ROS Attack_ (2020)
