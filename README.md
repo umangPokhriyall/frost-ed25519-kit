@@ -16,8 +16,7 @@ Highlights:
 
 ## Background
 
-This repository began as a "threshold MPC" Solana signer. An audit of that code
-found two defects that make a threshold signer worthless: the coordinator could
+This repository began as an experimental threshold signing library for Solana. An audit of that code found two design flaws that defeated the intended security guarantees of the threshold signer: the coordinator could
 reconstruct the full private key, and the signing scheme was a naive concurrent
 Schnorr that is forgeable. To prove the second is not theoretical, the old scheme
 is kept under `legacy/` and attacked directly: a self-mounted ROS (BLLOR 2020)
@@ -45,7 +44,7 @@ It does not provide:
 - databases
 - Solana SDK integration
 
-## Security properties — each with its evidence file
+## Security properties
 
 - **RFC 9591 KATs, byte-for-byte, intermediates-first.** Binding factors, the group
   commitment, each partial, and the final signature are checked against the official
@@ -81,7 +80,7 @@ It does not provide:
 
 ## Quickstart
 
-Run the in-process example:
+Clone the repository and run the in-process example:
 
 ```bash
 cargo run --example in_process_2of3

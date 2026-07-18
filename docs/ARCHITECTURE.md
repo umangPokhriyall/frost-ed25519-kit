@@ -41,7 +41,7 @@ secure scheme and its broken predecessor never share a graph.
 **`fuzz/`** — the cargo-fuzz crate (one target per deserializer); its own workspace,
 excluded from the build/clippy/test gate, nightly-only.
 
-**The runtime dependency graph consists of six direct dependencies:**
+**The production runtime depends directly on only six crates:**
 `curve25519-dalek`, `rand_core`, `sha2`, `subtle`, `thiserror`, and `zeroize`.
 
 `deny.toml` allow-lists the production dependency graph (`cargo tree -e normal`) and rejects additional runtime dependencies. `cargo audit` is used to verify that the production dependency graph has no known advisories. The crate is compiled with `#![forbid(unsafe_code)]`.
@@ -59,7 +59,7 @@ is exactly **one principled deviation**, and it is recorded here rather than smu
 `dkg::round2::Package` carries a participant's secret share `f_i(ℓ)` to recipient `ℓ`.
 Unlike the signing messages — which are public and carry no secret — the
 **VSS construction forces** a private dealer→recipient delivery of each share: that is
-how a verifiable secret sharing distributes the secret at all. The share therefore must cross a private channel, so `round2::Package` is the only secret-bearing type that provides serialization for transport. The deviation is bounded and hygienic:
+how a verifiable secret sharing distributes the secret at all. The share therefore must be transmitted over a private authenticated channel, so `round2::Package` is the only secret-bearing type that provides serialization for transport. The deviation is bounded and hygienic:
 
 - the share inside it is a `SigningShare` — `ZeroizeOnDrop`, redacting `Debug`, no
   `serde`;
@@ -88,7 +88,7 @@ returns a zeroizing buffer that round-trips.
 
 ### 4.1 Strict point decoding
 
-`group.rs` changed once after the initial implementation was considered complete. Coverage-guided fuzzing found that `GElement::from_compressed` accepted non-canonical point encodings (a `y ≥ p`, or a set sign bit on the `x = 0` point). The issue was fixed by enforcing RFC 8032 strict decoding and preserved as a regression test.
+Coverage-guided fuzzing found that `GElement::from_compressed` accepted non-canonical point encodings (a `y ≥ p`, or a set sign bit on the `x = 0` point). The issue was fixed by enforcing RFC 8032 strict decoding and is covered by regression tests.
 
 - Strict decoding re-encodes the decompressed point and rejects any byte mismatch rather than accepting non-canonical encodings. This avoids multiple byte strings representing the same group element and follows the project's "reject, never coerce" policy.
 - This issue affects input validation and canonical encoding. It is not a
@@ -99,7 +99,7 @@ returns a zeroizing buffer that round-trips.
   (`tests/differential.rs`) both pass post-fix. The fix narrows the accepted input set
   at the malleability boundary; it alters no valid computation.
 - **Evidence:** the finding and both crashing inputs are in `fuzz/README.md`; the
-  behavioural regression is pinned in `frost-core/tests/adversarial.rs`;
+  regression tests are in `frost-core/tests/adversarial.rs`;
 
 ---
 

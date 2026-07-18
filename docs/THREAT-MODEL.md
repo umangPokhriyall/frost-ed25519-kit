@@ -35,9 +35,9 @@ secret. This is the Shamir information-theoretic property: `t-1` evaluations of 
 degree-`(t-1)` polynomial are consistent with every possible constant term, so the
 secret is perfectly hidden below threshold — not "computationally hard," _nothing_.
 
-At **`≥ t`** participants, reconstruction of the group secret is **by design** —
-that is what the threshold _is_. A `≥ t` coalition reconstructing `s` is not a
-vulnerability; it is the defined capability of any `t`-of-`n` scheme. Stated plainly
+At **`≥ t`** participants, reconstruction of the group secret is an intended property
+of the protocol — that is what the threshold _is_. A `≥ t` coalition reconstructing `s`
+is not a vulnerability; it is the defined capability of any `t`-of-`n` scheme. Stated plainly
 so it is not mistaken for a finding: there is no defense against a `≥ t` collusion,
 and none is intended (see §11, out of scope).
 
@@ -68,7 +68,7 @@ the key or forge:
 The original threshold Schnorr implementation preserved under `legacy/` is
 forgeable under concurrent signing. The included ROS demonstration
 (`legacy/results/ros_forgery.txt`) shows a successful forgery using 256
-concurrent sessions without knowledge of the secret key. The archived implementation is retained specifically as a reproducible negative control.
+concurrent sessions without knowledge of the secret key. The archived implementation is retained to provide a reproducible demonstration of the vulnerability.
 
 The fix is FROST's **binding factor**. Each signer commits a _pair_ `(D_i, E_i)`,
 and its effective per-session commitment is `R_i^eff = D_i + ρ_i·E_i` with
@@ -93,11 +93,10 @@ rejected in session B because the recomputed `ρ` and challenge bind it to A's e
 In the Pedersen DKG, each participant broadcasts a Schnorr **proof of knowledge** of
 its constant term `a_{i,0}`: `μ_i·G == R_i + c_i·φ_{i,0}`, `c_i = H_dkg(i ‖ φ_{i,0}
 ‖ R_i)`. This prevents participants from advertising public commitments that they cannot
-open with a matching secret polynomial, eliminating the rogue-key attack
-described by Gennaro, Jarecki, Krawczyk, and Rabin, in which a
-participant chooses its public contribution `φ_{j,0}` as a function of the others' to
-bias the group key: without knowing the matching `a_{j,0}` it cannot produce a valid
-PoK, and `part2` rejects it as `Culprit(j)` (`tests/dkg_adversarial.rs`, `dkg_pok_pin.rs`).
+open with a matching secret polynomial, preventing the rogue-key attack described by
+Gennaro, Jarecki, Krawczyk, and Rabin, in which a participant chooses its public contribution `φ_{j,0}`
+as a function of the others' to bias the group key: without knowing the matching `a_{j,0}`
+it cannot produce a valid PoK, and `part2` rejects it as `Culprit(j)` (`tests/dkg_adversarial.rs`, `dkg_pok_pin.rs`).
 The PoK nonce is itself hedged (§7).
 
 ---
@@ -134,9 +133,8 @@ at its exact severity, given the Ed25519/Solana positioning where signature
 non-malleability is load-bearing.
 
 How it was found: the **coverage-guided fuzz run** caught this where the random-input
-bounded floor did not. The issue was discovered through coverage-guided fuzzing rather than random
-testing. The fix enforces RFC 8032 strict decoding by re-encoding the
-decompressed point and rejecting any byte mismatch. Regression tests preserve
+bounded floor did not. The implementation now enforces RFC 8032 strict decoding by re-encoding
+the decompressed point and rejecting any byte mismatch. Regression tests preserve
 the original inputs that exposed the issue.
 
 ---
@@ -159,8 +157,8 @@ Every cross-participant failure names the culprit, not merely "someone cheated":
 - a bad **partial signature** → `Culprit(id)` before summing (§3);
 - a bad **DKG PoK** or **VSS share** → `Culprit(j)` / `InvalidShare(j)` in `part2`/`part3`.
 
-This allows callers to identify the offending participant instead of receiving
-only a generic protocol failure.
+This allows callers to identify the offending participant and take application-specific
+recovery actions.
 
 ---
 
@@ -173,9 +171,8 @@ channel. **This library provides the share type's hygiene — zeroize-on-drop, a
 redacting `Debug`, no `serde`, and a `serialize` that returns `Zeroizing` bytes — but
 it does NOT provide the channel.** Delivering `round2::Package` over a **private,
 authenticated channel** is the integrator's responsibility and is an explicit
-assumption of the DKG's security. Failure to provide an authenticated private channel compromises the
-confidentiality of distributed shares and falls outside the guarantees provided
-by the library.
+assumption of the DKG's security. Sending these messages over an unauthenticated or public channel
+compromises share confidentiality and falls outside the library's security guarantees.
 
 ---
 
@@ -190,7 +187,7 @@ secret implements `serde::Serialize` — the crate has **no `serde` dependency a
 (enforced by `deny.toml`), the sole exception being `round2::Package`'s hand-rolled,
 `Zeroizing`-wrapped `serialize` for the private channel of §9.
 
-**Limit:** verifying that a specific _freed memory page_ is actually scrubbed
+**Honest limit:** verifying that a specific _freed memory page_ is actually scrubbed
 requires inspecting freed memory, which needs `unsafe` — and the crate is
 `#![forbid(unsafe_code)]`. The audit therefore proves the **types and traits** are
 correct (zeroize-on-drop is wired, no secret is `Debug`/`Serialize`-leaked), **not**
@@ -210,11 +207,11 @@ The following are explicitly **not** provided; an integrator must account for th
   the integrator's to satisfy.
 - **No robust / restartable DKG** — the DKG is **abort-and-identify**, not
   complaint-and-continue (GJKR): a detected cheat aborts the run and names the
-  culprit; it does not transparently continue with the honest subset. (This matches the behaviour of the reference implementation used during differential testing.; see `ARCHITECTURE.md`.)
+  culprit; it does not transparently continue with the honest subset. (This matches the behaviour of the reference implementation used during differential testing; see `ARCHITECTURE.md`.)
 - **No side-channel hardening beyond `curve25519-dalek`** — constant-time scalar and
   point arithmetic come from the backend; the library adds no further timing,
   power, or fault-injection countermeasures.
-- **Coverage-guided fuzzing** — absence of a crash within a budget is not proof of
+- **Fuzzing honesty limit** — absence of a crash within a budget is not proof of
   total absence; the committed budget is reported as an exec count, not "clean." The
   coverage-guided run (**104,624,899 execs across six deserializers, 0 crashes
   post-fix**) is what _found_ the non-canonical point-encoding malleability vector
